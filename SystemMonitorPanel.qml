@@ -16,6 +16,7 @@ Panel {
   SystemMonitorTheme {
     id: theme
     bar: root.bar
+    useSystemTheme: root.hostWidget ? root.hostWidget.useSystemTheme === true : false
   }
 
   readonly property int performanceTab: 0

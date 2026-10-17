@@ -134,7 +134,7 @@ Item {
     if (fanRepeater.count > 0) return fanRepeater.itemAt(fanRepeater.count - 1)
     if (temperatureRepeater.count > 0)
       return temperatureRepeater.itemAt(temperatureRepeater.count - 1)
-    return uptimeToggle
+    return gpuToggle
   }
 
   function nextTemperatureToggle(index) {
@@ -145,7 +145,7 @@ Item {
   }
 
   function previousTemperatureToggle(index) {
-    return index > 0 ? temperatureRepeater.itemAt(index - 1) : uptimeToggle
+    return index > 0 ? temperatureRepeater.itemAt(index - 1) : gpuToggle
   }
 
   function nextFanToggle(index) {
@@ -158,7 +158,7 @@ Item {
     if (index > 0) return fanRepeater.itemAt(index - 1)
     if (temperatureRepeater.count > 0)
       return temperatureRepeater.itemAt(temperatureRepeater.count - 1)
-    return uptimeToggle
+    return gpuToggle
   }
 
 
@@ -201,6 +201,7 @@ Item {
   SystemMonitorTheme {
     id: monitorTheme
     bar: root.bar
+    useSystemTheme: root.hostWidget ? root.hostWidget.useSystemTheme === true : false
   }
 
   Column {
@@ -330,13 +331,54 @@ Item {
           fontFamily: monitorTheme.fontFamily
           onClicked: root.chooseChipMode("minimal")
 
-          KeyNavigation.tab: cpuToggle
+          KeyNavigation.tab: systemThemeToggle
           KeyNavigation.backtab: instrumentButton
           Accessible.role: Accessible.RadioButton
           Accessible.name: "Minimal chip style"
           Accessible.description: "Show compact monochrome text"
           Accessible.checked: selected
         }
+      }
+    }
+
+    Column {
+      width: parent.width
+      spacing: monitorTheme.monitorGap
+
+      Toggle {
+        id: systemThemeToggle
+        width: parent.width
+        label: "Use system theme"
+        description: "Use the theme accent and text tones for signals, and its alert color for high usage."
+        checked: root.hostWidget ? root.hostWidget.useSystemTheme === true : false
+        foreground: monitorTheme.foreground
+        accent: monitorTheme.accentColor
+        fontFamily: monitorTheme.fontFamily
+        onClicked: root.hostWidget.setUseSystemTheme(!checked)
+        KeyNavigation.tab: chipBackgroundToggle
+        KeyNavigation.backtab: minimalButton
+        Accessible.role: Accessible.CheckBox
+        Accessible.name: label
+        Accessible.description: description
+        Accessible.checked: checked
+      }
+
+      Toggle {
+        id: chipBackgroundToggle
+        width: parent.width
+        label: "Show chip background"
+        description: "Draw a rounded background and outline around the instrument gauges."
+        checked: root.hostWidget ? root.hostWidget.showChipBackground !== false : true
+        foreground: monitorTheme.foreground
+        accent: monitorTheme.accentColor
+        fontFamily: monitorTheme.fontFamily
+        onClicked: root.hostWidget.setShowChipBackground(!checked)
+        KeyNavigation.tab: cpuToggle
+        KeyNavigation.backtab: systemThemeToggle
+        Accessible.role: Accessible.CheckBox
+        Accessible.name: label
+        Accessible.description: description
+        Accessible.checked: checked
       }
     }
 
@@ -363,7 +405,7 @@ Item {
         onClicked: root.setMonitorEnabled("cpu", !checked)
 
         KeyNavigation.tab: memoryToggle
-        KeyNavigation.backtab: minimalButton
+        KeyNavigation.backtab: chipBackgroundToggle
         Accessible.role: Accessible.CheckBox
         Accessible.name: label
         Accessible.description: description
@@ -382,8 +424,29 @@ Item {
         fontFamily: monitorTheme.fontFamily
         onClicked: root.setMonitorEnabled("memory", !checked)
 
-        KeyNavigation.tab: networkToggle
+        KeyNavigation.tab: gpuToggle
         KeyNavigation.backtab: cpuToggle
+        Accessible.role: Accessible.CheckBox
+        Accessible.name: label
+        Accessible.description: description
+        Accessible.checked: checked
+      }
+
+      Toggle {
+        id: gpuToggle
+
+        width: parent.width
+        label: "GPU"
+        description: "NVIDIA GPU utilization; requires nvidia-smi."
+        checked: root.monitorEnabled("gpu")
+        enabled: root.hostWidget && root.hostWidget.gpuCommandAvailable === true
+        foreground: monitorTheme.foreground
+        accent: monitorTheme.gpuColor
+        fontFamily: monitorTheme.fontFamily
+        onClicked: root.setMonitorEnabled("gpu", !checked)
+
+        KeyNavigation.tab: networkToggle
+        KeyNavigation.backtab: memoryToggle
         Accessible.role: Accessible.CheckBox
         Accessible.name: label
         Accessible.description: description
@@ -403,7 +466,7 @@ Item {
         onClicked: root.setMonitorEnabled("network", !checked)
 
         KeyNavigation.tab: loadToggle
-        KeyNavigation.backtab: memoryToggle
+        KeyNavigation.backtab: gpuToggle
         Accessible.role: Accessible.CheckBox
         Accessible.name: label
         Accessible.description: description
@@ -442,7 +505,7 @@ Item {
         fontFamily: monitorTheme.fontFamily
         onClicked: root.setMonitorEnabled("uptime", !checked)
 
-        KeyNavigation.tab: root.firstSensorToggle()
+        KeyNavigation.tab: gpuToggle
         KeyNavigation.backtab: loadToggle
         Accessible.role: Accessible.CheckBox
         Accessible.name: label

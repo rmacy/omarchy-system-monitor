@@ -16,6 +16,7 @@ Item {
   SystemMonitorTheme {
     id: theme
     bar: root.bar
+    useSystemTheme: root.hostWidget ? root.hostWidget.useSystemTheme === true : false
   }
 
   readonly property real cpuUsage: MonitorModel.finiteNumber(hostWidget ? hostWidget.cpuUsage : 0, 0)

@@ -382,7 +382,7 @@ function utilizationLevel(value) {
 // function here is pure and returns fresh arrays so QML callers reassign the
 // result whole, exactly like the history helpers above.
 
-var CHIP_MONITOR_IDS = ["cpu", "memory", "network", "load", "uptime"]
+var CHIP_MONITOR_IDS = ["cpu", "memory", "gpu", "network", "load", "uptime"]
 var CHIP_MODES = ["instrument", "minimal"]
 
 function chipMonitorIds() {

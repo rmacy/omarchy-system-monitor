@@ -729,13 +729,13 @@ Item {
 
         function test_chipMonitorIds_lists_fixed_order_fresh_each_call() {
             var ids = MonitorModel.chipMonitorIds()
-            compareIdList(ids, ["cpu", "memory", "network", "load", "uptime"])
+            compareIdList(ids, ["cpu", "memory", "gpu", "network", "load", "uptime"])
 
             // mutating a returned copy must not poison later calls
             ids.push("bogus")
             ids.shift()
             compareIdList(MonitorModel.chipMonitorIds(),
-                          ["cpu", "memory", "network", "load", "uptime"])
+                          ["cpu", "memory", "gpu", "network", "load", "uptime"])
 
             var defaults = MonitorModel.defaultChipMonitors()
             compareIdList(defaults, ["cpu", "memory", "network"])
@@ -767,7 +767,7 @@ Item {
             // unknown ids dropped, duplicates collapsed
             compareIdList(MonitorModel.normalizeChipMonitors(
                               ["gpu", "cpu", "cpu", "swap", "memory"]),
-                          ["cpu", "memory"])
+                          ["cpu", "memory", "gpu"])
             compareIdList(MonitorModel.normalizeChipMonitors(["bogus"]), [])
 
             // canonical order restored

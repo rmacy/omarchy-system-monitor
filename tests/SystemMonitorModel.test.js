@@ -878,7 +878,7 @@ describe('utilizationLevel', () => {
 
 describe('chipMonitorIds / defaultChipMonitors', () => {
   it('list monitors in the fixed chip order', () => {
-    assert.deepEqual(Model.chipMonitorIds(), ['cpu', 'memory', 'network', 'load', 'uptime'])
+    assert.deepEqual(Model.chipMonitorIds(), ['cpu', 'memory', 'gpu', 'network', 'load', 'uptime'])
     assert.deepEqual(Model.defaultChipMonitors(), ['cpu', 'memory', 'network'])
     for (const id of Model.defaultChipMonitors()) {
       assert.ok(Model.chipMonitorIds().includes(id), id)
@@ -888,7 +888,7 @@ describe('chipMonitorIds / defaultChipMonitors', () => {
     const ids = Model.chipMonitorIds()
     ids.push('bogus')
     ids.shift()
-    assert.deepEqual(Model.chipMonitorIds(), ['cpu', 'memory', 'network', 'load', 'uptime'])
+    assert.deepEqual(Model.chipMonitorIds(), ['cpu', 'memory', 'gpu', 'network', 'load', 'uptime'])
 
     const defaults = Model.defaultChipMonitors()
     defaults.pop()
@@ -921,10 +921,10 @@ describe('normalizeChipMonitors', () => {
   it('keeps an explicitly empty selection', () => {
     assert.deepEqual(Model.normalizeChipMonitors([]), [])
   })
-  it('drops unknown ids', () => {
+  it('keeps GPU and drops unknown ids', () => {
     assert.deepEqual(
       Model.normalizeChipMonitors(['cpu', 'gpu', 'swap', 'memory']),
-      ['cpu', 'memory'])
+      ['cpu', 'memory', 'gpu'])
     assert.deepEqual(Model.normalizeChipMonitors(['bogus']), [])
   })
   it('deduplicates repeated ids', () => {
@@ -951,6 +951,7 @@ describe('toggleChipMonitor', () => {
     assert.deepEqual(Model.toggleChipMonitor(['cpu'], 'memory', true), ['cpu', 'memory'])
     assert.deepEqual(Model.toggleChipMonitor(['memory'], 'cpu', true), ['cpu', 'memory'])
     assert.deepEqual(Model.toggleChipMonitor([], 'uptime', true), ['uptime'])
+    assert.deepEqual(Model.toggleChipMonitor(['network'], 'gpu', true), ['gpu', 'network'])
     // enabling onto defaults starts from the default selection
     assert.deepEqual(
       Model.toggleChipMonitor(null, 'load', true),

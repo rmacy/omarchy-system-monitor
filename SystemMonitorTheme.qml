@@ -5,6 +5,7 @@ QtObject {
   id: root
 
   property QtObject bar: null
+  property bool useSystemTheme: false
 
   function fullKey(key) {
     return "system-monitor." + key
@@ -62,25 +63,36 @@ QtObject {
   }
 
   readonly property color foreground: flatColorToken(
-    "text", bar ? bar.foreground : Color.foreground)
+    "text", bar ? bar.barForeground : Color.foreground)
   readonly property color muted: flatColorToken("muted", Color.muted)
   readonly property string fontFamily: bar && bar.fontFamily
     ? bar.fontFamily
     : Style.font.family
   readonly property color accentColor: flatColorToken("accent", Color.accent)
 
-  readonly property color cpuColor: flatColorToken("cpu", "#61d5f8")
-  readonly property color memoryColor: flatColorToken("memory", "#c7a6ff")
-  readonly property color downloadColor: flatColorToken("download", "#5eead4")
-  readonly property color uploadColor: flatColorToken("upload", "#a3e635")
-  readonly property color loadColor: flatColorToken("load", "#fbbf24")
-  readonly property color uptimeColor: flatColorToken("uptime", "#94a3b8")
-  readonly property color diskColor: flatColorToken("disk", "#38bdf8")
-  readonly property color gpuColor: flatColorToken("gpu", "#f472b6")
-  readonly property color temperatureColor: flatColorToken("temperature", "#fb923c")
-  readonly property color fanColor: flatColorToken("fan", "#38bdf8")
-  readonly property color warningColor: flatColorToken("warning", "#fbbf24")
-  readonly property color criticalColor: flatColorToken("critical", "#fb7185")
+  // Blend only theme roles, so signal tones follow theme changes live.
+  function blend(first, second, amount) {
+    return Qt.rgba(first.r + (second.r - first.r) * amount,
+      first.g + (second.g - first.g) * amount,
+      first.b + (second.b - first.b) * amount, 1)
+  }
+
+  readonly property color themeUrgent: bar ? bar.urgent : Color.urgent
+  readonly property color separatorColor: useSystemTheme
+    ? Util.alpha(foreground, 0.16) : chipBorder
+
+  readonly property color cpuColor: flatColorToken("cpu", useSystemTheme ? accentColor : "#61d5f8")
+  readonly property color memoryColor: flatColorToken("memory", useSystemTheme ? blend(accentColor, foreground, 0.7) : "#c7a6ff")
+  readonly property color downloadColor: flatColorToken("download", useSystemTheme ? accentColor : "#5eead4")
+  readonly property color uploadColor: flatColorToken("upload", useSystemTheme ? foreground : "#a3e635")
+  readonly property color loadColor: flatColorToken("load", useSystemTheme ? blend(accentColor, foreground, 0.35) : "#fbbf24")
+  readonly property color uptimeColor: flatColorToken("uptime", useSystemTheme ? foreground : "#94a3b8")
+  readonly property color diskColor: flatColorToken("disk", useSystemTheme ? accentColor : "#38bdf8")
+  readonly property color gpuColor: flatColorToken("gpu", useSystemTheme ? blend(accentColor, foreground, 0.35) : "#f472b6")
+  readonly property color temperatureColor: flatColorToken("temperature", useSystemTheme ? accentColor : "#fb923c")
+  readonly property color fanColor: flatColorToken("fan", useSystemTheme ? blend(accentColor, foreground, 0.7) : "#38bdf8")
+  readonly property color warningColor: flatColorToken("warning", useSystemTheme ? blend(themeUrgent, accentColor, 0.5) : "#fbbf24")
+  readonly property color criticalColor: flatColorToken("critical", useSystemTheme ? themeUrgent : "#fb7185")
 
   readonly property color chipBackground: composedColorToken(
     "chip-background", Color.background, chipFallbackAlpha())

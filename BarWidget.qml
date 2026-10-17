@@ -10,10 +10,18 @@ BarWidget {
   SystemMonitorTheme {
     id: monitorTheme
     bar: root.bar
+    useSystemTheme: root.useSystemTheme
   }
 
   property int cpuUsage: 0
   property int memoryUsage: 0
+  property int gpuUsage: 0
+  property real gpuMemoryUsedMiB: 0
+  property real gpuMemoryTotalMiB: 0
+  property int gpuTemperature: -1
+  property bool gpuCommandAvailable: false
+  property bool gpuReadingAvailable: false
+  property var gpuHistory: []
   property real receiveRate: 0
   property real transmitRate: 0
   property real loadOne: 0
@@ -42,6 +50,12 @@ BarWidget {
   readonly property bool sensorTransactionPending:
     sensorStreamFinished || sensorProcessExited
   property bool chipSettingsDirty: false
+  property bool stagedUseSystemTheme: false
+  property bool stagedShowChipBackground: true
+  readonly property bool useSystemTheme: chipSettingsDirty
+    ? stagedUseSystemTheme : setting("useSystemTheme", false) === true
+  readonly property bool showChipBackground: chipSettingsDirty
+    ? stagedShowChipBackground : setting("showChipBackground", true) !== false
   property string stagedChipMode: "instrument"
   property var stagedChipMonitors: []
 
@@ -77,8 +91,17 @@ BarWidget {
     return unavailable
   }
   readonly property bool sensorPollingActive: opened || selectedSensorMonitorIds.length > 0
+  readonly property bool gpuPollingActive: monitorEnabled("gpu") && gpuCommandAvailable
   readonly property string tooltip: ready
-    ? "CPU " + cpuUsage + "%  •  Memory " + memoryUsage + "%\nDownload " + MonitorModel.formatRate(receiveRate) + "  •  Upload " + MonitorModel.formatRate(transmitRate) + "\nClick for System Monitor  •  Middle-click for btop  •  Right-click for Task Manager"
+    ? "CPU " + cpuUsage + "%  •  Memory " + memoryUsage + "%"
+      + (gpuReadingAvailable
+        ? "  •  GPU " + gpuUsage + "%  ·  VRAM "
+          + (gpuMemoryUsedMiB / 1024).toFixed(1) + "/"
+          + (gpuMemoryTotalMiB / 1024).toFixed(1) + " GiB"
+          + (gpuTemperature >= 0 ? "  ·  " + gpuTemperature + "°C" : "")
+        : "")
+      + "\nDownload " + MonitorModel.formatRate(receiveRate) + "  •  Upload " + MonitorModel.formatRate(transmitRate)
+      + "\nClick for System Monitor  •  Middle-click for btop  •  Right-click for Task Manager"
     : "Collecting system statistics…"
   readonly property int chevronGap: root.chipMode === "minimal"
     ? Math.round(monitorTheme.monitorGap * 0.5)
@@ -105,6 +128,13 @@ BarWidget {
     if (level === "critical") return monitorTheme.criticalColor
     if (level === "warning") return monitorTheme.warningColor
     return monitorTheme.memoryColor
+  }
+
+  function gpuLevelColor(value) {
+    var level = MonitorModel.utilizationLevel(value)
+    if (level === "critical") return monitorTheme.criticalColor
+    if (level === "warning") return monitorTheme.warningColor
+    return monitorTheme.gpuColor
   }
 
   function monitorEnabled(id) {
@@ -166,6 +196,10 @@ BarWidget {
   }
 
   function stageChipSettings(mode, monitors) {
+    if (!chipSettingsDirty) {
+      stagedUseSystemTheme = useSystemTheme
+      stagedShowChipBackground = showChipBackground
+    }
     stagedChipMode = MonitorModel.normalizeChipMode(mode)
     stagedChipMonitors = MonitorModel.normalizeChipMonitors(monitors)
     chipSettingsDirty = true
@@ -178,6 +212,8 @@ BarWidget {
     var current = settings || ({})
     for (var key in current) if (key !== "id") entry[key] = current[key]
     entry.id = moduleName || "bitr0t.system-monitor"
+    entry.useSystemTheme = stagedUseSystemTheme
+    entry.showChipBackground = stagedShowChipBackground
     entry.chipMode = stagedChipMode
     entry.monitors = stagedChipMonitors.slice()
 
@@ -199,13 +235,26 @@ BarWidget {
     stageChipSettings(chipMode, MonitorModel.toggleChipMonitor(chipMonitors, id, enabled))
   }
 
+  function setUseSystemTheme(enabled) {
+    stageChipSettings(chipMode, chipMonitors)
+    stagedUseSystemTheme = enabled
+  }
+
+  function setShowChipBackground(enabled) {
+    stageChipSettings(chipMode, chipMonitors)
+    stagedShowChipBackground = enabled
+  }
+
   function resetChipSettings() {
     stageChipSettings("instrument", MonitorModel.defaultChipMonitors())
+    stagedUseSystemTheme = false
+    stagedShowChipBackground = true
   }
 
   function minimalMonitorText(id) {
     if (id === "cpu") return "CPU " + cpuUsage + "%"
     if (id === "memory") return "MEM " + memoryUsage + "%"
+    if (id === "gpu") return "GPU " + (gpuReadingAvailable ? gpuUsage + "%" : "…")
     if (id === "network")
       return "NET ↓" + MonitorModel.formatCompactRate(receiveRate) + " ↑" + MonitorModel.formatCompactRate(transmitRate)
     if (id === "load") return "LOAD " + MonitorModel.formatLoad(loadOne)
@@ -218,6 +267,7 @@ BarWidget {
   function minimalMonitorReserve(id) {
     if (id === "cpu") return "CPU 99%"
     if (id === "memory") return "MEM 99%"
+    if (id === "gpu") return "GPU 99%"
     if (id === "load") return "LOAD 9.99"
     if (id === "uptime") return "UP 99d 23h"
     if (MonitorModel.isSensorMonitorId(id))
@@ -313,6 +363,21 @@ BarWidget {
     previousStats = stats
     previousSampleTime = now
     ready = true
+  }
+
+  function updateGpu(output) {
+    var reading = MonitorModel.parseGpuOutput(output)
+    if (!reading) {
+      gpuReadingAvailable = false
+      return
+    }
+
+    gpuUsage = Math.round(reading.usage)
+    gpuMemoryUsedMiB = reading.memoryUsedMiB
+    gpuMemoryTotalMiB = reading.memoryTotalMiB
+    gpuTemperature = reading.temperature
+    gpuHistory = MonitorModel.appendHistory(gpuHistory, gpuUsage)
+    gpuReadingAvailable = true
   }
 
   function markSensorsStale() {
@@ -575,7 +640,7 @@ BarWidget {
   component ChipDivider: Rectangle {
     width: 1
     height: monitorTheme.graphHeight
-    color: monitorTheme.chipBorder
+    color: monitorTheme.separatorColor
     anchors.verticalCenter: parent.verticalCenter
 
     Behavior on color {
@@ -591,7 +656,7 @@ BarWidget {
       id: cpuLabel
       anchors.verticalCenter: parent.verticalCenter
       text: "CPU"
-      color: root.dim(monitorTheme.cpuColor, 0.82)
+      color: root.useSystemTheme ? root.dim(monitorTheme.foreground, 0.7) : root.dim(monitorTheme.cpuColor, 0.82)
       font.weight: Font.DemiBold
     }
 
@@ -621,7 +686,7 @@ BarWidget {
       id: memoryLabel
       anchors.verticalCenter: parent.verticalCenter
       text: "MEM"
-      color: root.dim(monitorTheme.memoryColor, 0.82)
+      color: root.useSystemTheme ? root.dim(monitorTheme.foreground, 0.7) : root.dim(monitorTheme.memoryColor, 0.82)
       font.weight: Font.DemiBold
     }
 
@@ -643,6 +708,36 @@ BarWidget {
     }
   }
 
+  component GpuInstrument: Row {
+    spacing: Math.max(1, Math.round(monitorTheme.monitorGap / 2))
+    height: Math.max(monitorTheme.graphHeight, gpuLabel.implicitHeight)
+
+    ChipText {
+      id: gpuLabel
+      anchors.verticalCenter: parent.verticalCenter
+      text: "GPU"
+      color: root.useSystemTheme ? root.dim(monitorTheme.foreground, 0.7) : root.dim(monitorTheme.gpuColor, 0.82)
+      font.weight: Font.DemiBold
+    }
+
+    Sparkline {
+      width: monitorTheme.graphWidth
+      height: monitorTheme.graphHeight
+      anchors.verticalCenter: parent.verticalCenter
+      history: root.gpuHistory
+      lineColor: monitorTheme.gpuColor
+      minimumSpan: 20
+    }
+
+    ChipText {
+      anchors.verticalCenter: parent.verticalCenter
+      text: root.gpuReadingAvailable ? root.gpuUsage + "%" : "…"
+      color: root.gpuReadingAvailable ? root.gpuLevelColor(root.gpuUsage) : monitorTheme.muted
+      width: Math.round(monitorTheme.graphWidth * 0.62)
+      horizontalAlignment: Text.AlignRight
+    }
+  }
+
   component NetworkInstrument: Row {
     spacing: Math.max(1, Math.round(monitorTheme.monitorGap / 2))
     height: Math.max(monitorTheme.graphHeight, networkLabel.implicitHeight)
@@ -651,7 +746,7 @@ BarWidget {
       id: networkLabel
       anchors.verticalCenter: parent.verticalCenter
       text: "NET"
-      color: root.dim(monitorTheme.downloadColor, 0.82)
+      color: root.useSystemTheme ? root.dim(monitorTheme.foreground, 0.7) : root.dim(monitorTheme.downloadColor, 0.82)
       font.weight: Font.DemiBold
     }
 
@@ -696,7 +791,7 @@ BarWidget {
       id: loadLabel
       anchors.verticalCenter: parent.verticalCenter
       text: "LOAD"
-      color: root.dim(monitorTheme.loadColor, 0.82)
+      color: root.useSystemTheme ? root.dim(monitorTheme.foreground, 0.7) : root.dim(monitorTheme.loadColor, 0.82)
       font.weight: Font.DemiBold
     }
 
@@ -727,7 +822,7 @@ BarWidget {
       id: uptimeLabel
       anchors.verticalCenter: parent.verticalCenter
       text: "UP"
-      color: root.dim(monitorTheme.uptimeColor, 0.82)
+      color: root.useSystemTheme ? root.dim(monitorTheme.foreground, 0.7) : root.dim(monitorTheme.uptimeColor, 0.82)
       font.weight: Font.DemiBold
     }
 
@@ -759,7 +854,7 @@ BarWidget {
       id: sensorLabel
       anchors.verticalCenter: parent.verticalCenter
       text: root.sensorDisplayLabel(sensorInstrument.monitorId)
-      color: root.dim(sensorInstrument.instrumentColor, 0.82)
+      color: root.useSystemTheme ? root.dim(monitorTheme.foreground, 0.7) : root.dim(sensorInstrument.instrumentColor, 0.82)
       font.weight: Font.DemiBold
     }
 
@@ -818,6 +913,13 @@ BarWidget {
         spacing: monitorTheme.monitorGap
         ChipDivider { visible: root.monitorPosition("memory") > 0 }
         MemoryInstrument {}
+      }
+
+      Row {
+        visible: root.monitorEnabled("gpu")
+        spacing: monitorTheme.monitorGap
+        ChipDivider { visible: root.monitorPosition("gpu") > 0 }
+        GpuInstrument {}
       }
 
       Row {
@@ -1020,7 +1122,7 @@ BarWidget {
       anchors.fill: parent
       anchors.topMargin: Math.max(1, Math.round(monitorTheme.monitorGap / 4))
       anchors.bottomMargin: anchors.topMargin
-      visible: root.chipMode === "instrument"
+      visible: root.chipMode === "instrument" && root.showChipBackground
       color: monitorTheme.chipBackground
       border.width: 1
       border.color: monitorTheme.chipBorder
@@ -1095,6 +1197,46 @@ BarWidget {
     repeat: true
     triggeredOnStart: true
     onTriggered: root.startSensorsProbe()
+  }
+
+  FileView {
+    path: "/usr/bin/nvidia-smi"
+    watchChanges: false
+    printErrors: false
+    onLoaded: root.gpuCommandAvailable = true
+    onLoadFailed: {
+      root.gpuCommandAvailable = false
+      root.gpuReadingAvailable = false
+    }
+  }
+
+  Timer {
+    interval: 2000
+    running: root.gpuPollingActive
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!gpuProcess.running) gpuProcess.running = true
+  }
+
+  Process {
+    id: gpuProcess
+    command: MonitorModel.buildBoundedCommand(
+      boundedCommandPath,
+      MonitorModel.commandOutputLimit("gpu"),
+      ["timeout", "--kill-after=1", "5", "/usr/bin/nvidia-smi",
+       "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
+       "--format=csv,noheader,nounits", "-i", "0"]
+    )
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.updateGpu(text)
+    }
+    stderr: StdioCollector {
+      waitForEnd: true
+    }
+    onExited: function(exitCode, exitStatus) {
+      if (exitCode !== 0) root.gpuReadingAvailable = false
+    }
   }
 
   Process {

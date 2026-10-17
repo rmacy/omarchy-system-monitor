@@ -16,7 +16,7 @@ Manager window — with race-free, identity-verified process termination.
 
 | Area | What you get |
 |---|---|
-| Bar chip | CPU, memory, network, load, and uptime at a glance — plus any temperature or fan sensor you pin to it. Two styles: animated instrument gauges or compact minimal text. |
+| Bar chip | CPU, memory, GPU utilization, network, load, and uptime at a glance — plus any temperature or fan sensor you pin to it. Two styles: animated instrument gauges or compact minimal text. |
 | Panel | Click the chip for a popover with **Performance**, **Processes**, and **System Info** tabs. |
 | Performance | Live CPU/memory history graphs, a dual-direction network graph, load averages, uptime, root-disk usage, and (on NVIDIA) GPU utilization, VRAM, and temperature. Sensor cards for every monitor pinned to the chip. |
 | Processes | A live, searchable, sortable table of your own processes — filter as you type, sort by CPU, memory, or name. |
@@ -55,7 +55,8 @@ omarchy plugin remove bitr0t.system-monitor   # uninstall
 - **Middle-click** — launch (or focus) `btop` in a terminal
 - **Right-click** — open the Task Manager window
 
-Hovering the chip shows current CPU, memory, and network rates.
+Hovering the chip shows current CPU, memory, and network rates, plus GPU load,
+VRAM, and temperature when the GPU sample is available.
 Telemetry text updates atomically once per completed sample; visual theme
 transitions never interpolate the underlying numeric readings.
 
@@ -86,6 +87,16 @@ That gives you a Windows-style <kbd>Ctrl+Shift+Esc</kbd> task manager that opens
 Open with the gear in the panel header. Changes apply immediately and are saved
 when the panel closes.
 
+**Appearance**
+
+- **Use system theme** derives signal colors from the current theme accent and text,
+  and uses its urgent color for alerts. Off restores the original signal palette.
+- **Show chip background** toggles the rounded instrument background and outline.
+  Turn it off to let the gauges sit directly on the bar.
+
+Both settings preview immediately and save when the panel closes. Existing
+`[system-monitor]` color overrides in `shell.toml` take priority in either mode.
+
 **Chip style**
 
 | Style | Look |
@@ -99,6 +110,7 @@ when the panel closes.
 |---|---|
 | CPU | Utilization percentage + sparkline |
 | Memory | Used percentage + sparkline |
+| GPU | NVIDIA utilization percentage + sparkline; VRAM and temperature in the tooltip |
 | Network | Download/upload rates + traffic graph |
 | Load | 1-minute load average |
 | Uptime | Compact time since boot (`2d 5h`) |

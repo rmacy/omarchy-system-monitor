@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "bitr0t.system-monitor",
   "name": "System Monitor",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "author": "Ryan Macy",
   "license": "MIT",
-  "description": "Live CPU, memory, network, load, uptime, and sensor chip with a system monitor panel, process list, and standalone Task Manager window.",
+  "description": "Live CPU, memory, NVIDIA GPU, network, load, uptime, and sensor chip with a system monitor panel, process list, and standalone Task Manager window.",
   "kinds": [
     "bar-widget"
   ],
@@ -16,12 +16,22 @@
     "displayName": "System Monitor",
     "description": "Live resource chip with a three-tab panel (performance, processes, system info), sensor monitors, and a Task Manager window.",
     "category": "System",
-    "aliases": ["system-monitor", "system-stats", "task-manager"],
+    "aliases": [
+      "system-monitor",
+      "system-stats",
+      "task-manager"
+    ],
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
       "chipMode": "instrument",
-      "monitors": ["cpu", "memory", "network"]
+      "monitors": [
+        "cpu",
+        "memory",
+        "network"
+      ],
+      "useSystemTheme": false,
+      "showChipBackground": true
     },
     "schema": [
       {
@@ -29,8 +39,25 @@
         "type": "enum",
         "label": "Chip mode",
         "description": "Bar chip presentation: instrument gauges or minimal text.",
-        "options": ["instrument", "minimal"],
+        "options": [
+          "instrument",
+          "minimal"
+        ],
         "defaultValue": "instrument"
+      },
+      {
+        "key": "useSystemTheme",
+        "type": "boolean",
+        "label": "Use system theme",
+        "description": "Use theme colors for signals and alerts.",
+        "defaultValue": false
+      },
+      {
+        "key": "showChipBackground",
+        "type": "boolean",
+        "label": "Show chip background",
+        "description": "Draw the rounded background and outline in instrument mode.",
+        "defaultValue": true
       }
     ]
   }
